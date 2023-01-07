@@ -1,0 +1,419 @@
+<html lang="en">
+
+<head>
+    <title>Bar chart</title>
+    <style>
+        #map {
+            height: 180px;
+            display: block;
+            /* visibility: hidden; */
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+        integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
+</head>
+
+<body translate="no">
+    <div id="containerDiv">
+        <canvas id="barChart"></canvas>
+        <div id="map"></div>
+    </div>
+    <!-- <script src='https://unpkg.com/leaflet@1.6.0/dist/leaflet.js'></script> -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+        integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.14.1/moment.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.2.1/axios.min.js"></script>
+
+    <script>
+        //dates: array of dates, words: aaray of words with 
+        /**
+         * datasets: [
+                {
+                    label: 'Palestine',
+                    data: [23, 44, 60, 50, 77],
+                    location: [49.5, -0.09],
+         * 
+         * */
+        // const axios = require('axios');
+        const backgroundColors = ['rgba(255, 99, 132, 0.2)', 'rgba(255, 159, 64, 0.2)', 'rgba(255, 205, 86, 0.2)', 'rgba(255, 159, 64, 0.2)', 'rgba(153, 102, 255, 0.2)'];
+        const borderColors = ['rgb(255, 99, 132)', 'rgb(255, 159, 64)', 'rgb(255, 205, 86)', 'rgb(75, 192, 192)', 'rgb(153, 102, 255)']
+        let barChart;
+        let isFirstTimeLoadingChart = true;
+        // {date,word,latlng,freq}
+        let testData = [{
+            "date": "Sep-14-2013",
+            "freq": 4,
+            "latLng": [
+                "-77.029",
+                "38.8991"
+            ],
+            "word": "http"
+        },
+        {
+            "date": "Sep-14-2013",
+            "freq": 4,
+            "latLng": [
+                "-77.029",
+                "38.8991"
+            ],
+            "word": "States"
+        },
+        {
+            "date": "Sep-14-2013",
+            "freq": 4,
+            "latLng": [
+                "-77.029",
+                "38.8991"
+            ],
+            "word": "mleEmY"
+        },
+        {
+            "date": "Sep-14-2013",
+            "freq": 4,
+            "latLng": [
+                "-77.029",
+                "38.8991"
+            ],
+            "word": "Friday"
+        },
+        {
+            "date": "Sep-14-2013",
+            "freq": 4,
+            "latLng": [
+                "-77.029",
+                "38.8991"
+            ],
+            "word": "United"
+        },
+        {
+            "date": "Sep-13-2013",
+            "freq": 2,
+            "latLng": [
+                "-105.21330888",
+                "40.015358"
+            ],
+            "word": "Flatiron"
+        },
+        {
+            "date": "Sep-13-2013",
+            "freq": 2,
+            "latLng": [
+                "-105.21330888",
+                "40.015358"
+            ],
+            "word": "boulder"
+        },
+        {
+            "date": "Sep-13-2013",
+            "freq": 2,
+            "latLng": [
+                "-105.21330888",
+                "40.015358"
+            ],
+            "word": "Subaru"
+        },
+        {
+            "date": "Sep-13-2013",
+            "freq": 2,
+            "latLng": [
+                "-105.21330888",
+                "40.015358"
+            ],
+            "word": "http"
+        },
+        {
+            "date": "Sep-13-2013",
+            "freq": 2,
+            "latLng": [
+                "-105.21330888",
+                "40.015358"
+            ],
+            "word": "flood "
+        }
+        ];
+
+        function createChartData(respData) {
+            let chartDates = [...new Set(respData.map(item => item.date))];
+            let chartWords = respData.map(item => item.word);
+
+
+
+            console.log(chartDates)
+            let dataObj = {},
+                chartDatasets = [],
+                wordsFreqs = [],
+                wordslocations = [],
+                wordDate = '',
+                structuredWordsObj = createArray(respData, chartDates); //{ word: "", freqs: [], locs: [] }
+            console.log("before", { structuredWordsObj });
+            // setTimeout(() => {
+            for (let i = 0; i < respData.length; i++) {
+                //     // const { date = '', word = '', latLng = [null, null], freq = 0 } = item || {};
+                let dateIndex = chartDates.findIndex(chartDate => chartDate === respData[i].date);
+
+                structuredWordsObj[i].word = respData[i].word;
+
+                structuredWordsObj[i].freqs[dateIndex] = respData[i].freq;
+                structuredWordsObj[i].locs[dateIndex] = respData[i].latLng;
+
+            }
+            for (let index = 0; index < structuredWordsObj.length; index++) {
+                const { word = '', freqs = [], locs = [] } = structuredWordsObj[index] || {};
+                chartDatasets.push({ label: word, data: [...freqs, 0], locations: [...locs, [null, null]], backgroundColor: new Array(locs.length + 1).fill(backgroundColors[0]), borderColor: new Array(locs.length + 1).fill(borderColors[0]), borderWidth: 1 });
+            }
+            return { chartDates, chartDatasets }
+        }
+
+
+
+        function createArray(respData, chartDates) {
+            return Array.from(Array(respData.length), () => { return { word: "", freqs: new Array(chartDates.length).fill(0), locs: new Array(chartDates.length).fill([null, null]) } })
+            // return new Array(respData.length).fill({ word: null, freqs: new Array(chartDates.length).fill(0), locs: new Array(chartDates.length).fill([null, null]) });
+        }
+
+
+        setBarChartData();
+        async function getWordFromBE() {
+            try {
+                // const res = await axios.get('http://localhost:9000/data');
+                // return Promise.resolve(testData);
+                return Promise.resolve(testData);
+            } catch (err) {
+                console.error("Failed to getWordsFromBE with error,  ", err);
+                return Promise.reject(err);
+            }
+        }
+
+        async function setBarChartData() {
+            respData = await getWordFromBE();
+            const chartData = await createChartData(respData);
+            sendDataToBarChart(chartData);
+        }
+
+
+        setInterval(() => {
+            setBarChartData();
+        }, 10000) // time here in ms
+
+        function toggleMapVisibility(show) {
+            const map = document.getElementById("map");
+            if (show) {
+                if (map.style.visibility === 'hidden') {
+                    map.style.visibility = 'visible';
+                }
+            } else {
+                map.style.visibility = 'hidden';
+            }
+        }
+        function setMapView(lat, lng, zoomLvl) {
+            map.setView([lat, lng], zoomLvl)
+        }
+        function setMapMarker(latLng) {
+            marker.setLatLng(latLng)
+        }
+        const labels = [new Date('10-16-2021'), new Date('10-17-2021'), new Date('10-20-2021'), new Date('10-23-2021'), new Date('10-27-2021'), new Date('10-29-2021')];
+        const newLegendClickHandler = function (event) {
+            console.log("legend clicked: ", event)
+        }
+        let isMarkerVisibile = false, marker;
+        let map = L.map('map');
+        setMapView(51.505, -0.09, 13);
+
+        const config = {
+            type: 'bar',
+            data: [],
+            options: {
+                onClick: function (event) {
+                    console.log("called onclick here", { event });
+                    const activePoints = barChart.getElementsAtEventForMode(event, 'point', barChart.options);
+                    const firstPoint = activePoints[0];
+                    const label = barChart.data.labels[firstPoint._index];
+                    const value = barChart.data.datasets[firstPoint._datasetIndex].data[firstPoint._index];
+                   
+                    const latLngArray = barChart.data.datasets[firstPoint._datasetIndex].locations[firstPoint._index];
+                    const word = barChart.data.datasets[firstPoint._datasetIndex].label;
+
+                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    }).addTo(map);
+                    if (isMarkerVisibile) {
+                        setMapMarker(latLngArray);
+                        setMapView(latLngArray[0], latLngArray[1], 13)
+
+                    } else {
+                        marker = L.marker(latLngArray).addTo(map);
+                        isMarkerVisibile = true;
+                    }
+
+                    marker.bindPopup(word).openPopup(); // pass in here the world location 
+                },
+                scales: {
+                    xAxes: [{
+                        type: "time",
+                        position: "bottom",
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Date'
+                        },
+                        time: {
+                            unit: 'day',
+                            round: 'day',
+                            displayFormats: {
+                                day: 'MMM D'
+                            }
+                        }
+                    }],
+                    yAxes: [{
+                        position: "left",
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Frequency'
+                        },
+                        ticks: {
+                            beginAtZero: true,
+
+                        }
+                    }]
+                }
+            },
+        };
+
+        ctx = document.getElementById('barChart').getContext("2d");
+        function sendDataToBarChart(chartData) {
+            const { chartDates, chartDatasets } = chartData || {};
+            const chartDatesObjs = chartDates.map(item => item = new Date(item))
+            let extraDate = new Date(chartDates[chartDates.length - 1]);
+
+            extraDate.setDate(extraDate.getDate() + 3)
+            const data = {
+                labels: chartDatesObjs.concat(extraDate),
+                datasets: chartDatasets
+                // datasets: [
+                //     {
+                //         label: 'Palestine',
+                //         data: [0, 0, 60, 50, 77],
+                //         location: [49.5, -0.09],
+                //         backgroundColor: [
+                //             'rgba(255, 99, 132, 0.2)',
+                //             'rgba(255, 99, 132, 0.2)',
+                //             'rgba(255, 99, 132, 0.2)',
+                //             'rgba(255, 99, 132, 0.2)',
+                //             'rgba(255, 99, 132, 0.2)'
+
+                //         ],
+                //         borderColor: [
+                //             'rgb(255, 99, 132)',
+                //             'rgb(255, 99, 132)',
+                //             'rgb(255, 99, 132)',
+                //             'rgb(255, 99, 132)',
+                //             'rgb(255, 99, 132)'
+                //         ],
+                //         borderWidth: 1
+                //     },
+                //     {
+                //         label: 'FIFA',
+                //         location: [51.5, -0.09],
+                //         data: [65, 59, 80, 45, 87],
+                //         backgroundColor: [
+
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)'
+
+                //         ],
+                //         borderColor: [
+                //             'rgb(255, 159, 64)',
+                //             'rgb(255, 159, 64)',
+                //             'rgb(255, 159, 64)',
+                //             'rgb(255, 159, 64)',
+                //             'rgb(255, 159, 64)'
+                //         ],
+                //         borderWidth: 1
+                //     },
+                //     {
+                //         label: 'WORLD CUP',
+                //         data: [33, 12, 100, 54, 93],
+                //         location: [55.4, -0.09],
+                //         backgroundColor: [
+                //             'rgba(255, 205, 86, 0.2)',
+                //             'rgba(255, 205, 86, 0.2)',
+                //             'rgba(255, 205, 86, 0.2)',
+                //             'rgba(255, 205, 86, 0.2)',
+                //             'rgba(255, 205, 86, 0.2)'
+
+                //         ],
+                //         borderColor: [
+                //             'rgb(255, 205, 86)',
+                //             'rgb(255, 205, 86)',
+                //             'rgb(255, 205, 86)',
+                //             'rgb(255, 205, 86)',
+                //             'rgb(255, 205, 86)'
+                //         ],
+                //         borderWidth: 1
+                //     },
+                //     {
+                //         label: 'Morroco',
+                //         data: [100, 32, 43, 14, 293],
+                //         location: [44.9, -0.09],
+                //         backgroundColor: [
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)',
+                //             'rgba(255, 159, 64, 0.2)'
+
+                //         ],
+                //         borderColor: [
+                //             'rgb(75, 192, 192)',
+                //             'rgb(75, 192, 192)',
+                //             'rgb(75, 192, 192)',
+                //             'rgb(75, 192, 192)',
+                //             'rgb(75, 192, 192)'
+                //         ],
+                //         borderWidth: 1
+                //     },
+                //     {
+                //         label: 'Argentina',
+                //         data: [23, 17, 65, 12, 3],
+                //         location: [41.2, -0.07],
+                //         backgroundColor: [
+                //             'rgba(153, 102, 255, 0.2)',
+                //             'rgba(153, 102, 255, 0.2)',
+                //             'rgba(153, 102, 255, 0.2)',
+                //             'rgba(153, 102, 255, 0.2)',
+                //             'rgba(153, 102, 255, 0.2)'
+
+                //         ],
+                //         borderColor: [
+                //             'rgb(153, 102, 255)',
+                //             'rgb(153, 102, 255)',
+                //             'rgb(153, 102, 255)',
+                //             'rgb(153, 102, 255)',
+                //             'rgb(153, 102, 255)'
+                //         ],
+                //         borderWidth: 1
+                //     }
+                // ]
+            };
+
+            config.data = data;
+
+            if (isFirstTimeLoadingChart) {
+                barChart = new Chart(ctx, config);
+                isFirstTimeLoadingChart = false;
+            } else {
+                barChart.data = data;
+                barChart.update();
+            }
+
+        }
+
+    </script>
+</body>
+
+</html>
